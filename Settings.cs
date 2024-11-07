@@ -105,24 +105,6 @@ namespace ISBoxerEVELauncher
             }
         }
 
-        bool _X64;
-        /// <summary>
-        /// Flag to indicate whether shoudl try and launch the x64 client
-        /// </summary>
-        public bool X64
-        {
-            get
-            {
-                return _X64;
-            }
-            set
-            {
-                _X64 = value;
-                OnPropertyChanged("X64");
-            }
-        }
-
-
         float _LaunchDelay;
         /// <summary>
         /// Delay between game launches, in seconds
@@ -206,7 +188,7 @@ namespace ISBoxerEVELauncher
         {
             if (string.IsNullOrEmpty(EVESharedCachePath))
                 return null;
-            return Path.Combine(GetTranquilityPath(), (X64 ? "bin64" : "bin") + "\\exefile.exe");
+            return Path.Combine(GetTranquilityPath(), "bin64\\exefile.exe");
         }
         public string GetSingularityPath()
         {
@@ -218,7 +200,7 @@ namespace ISBoxerEVELauncher
         {
             if (string.IsNullOrEmpty(EVESharedCachePath))
                 return null;
-            return Path.Combine(GetSingularityPath(), (X64 ? "bin64" : "bin") + "\\exefile.exe");
+            return Path.Combine(GetSingularityPath(), "bin64\\exefile.exe");
         }
 
         string _MasterKeyCheck;

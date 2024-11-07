@@ -75,6 +75,7 @@ namespace ISBoxerEVELauncher.Games.EVE
             {
                 _authObj = resp;
                 TokenString = resp.access_token;
+                RefreshToken = resp.refresh_token;
                 Expiration = DateTime.Now.AddSeconds(resp.expires_in).AddMinutes(-1);
             }
 
@@ -101,6 +102,12 @@ namespace ISBoxerEVELauncher.Games.EVE
             {
                 get; set;
             }
+
+            public string RefreshToken
+            {
+                get; set;
+            }
+
             /// <summary>
             /// When the token is good until...
             /// </summary>

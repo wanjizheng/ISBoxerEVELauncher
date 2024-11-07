@@ -422,7 +422,7 @@ namespace ISBoxerEVELauncher
             if (gameProfileName == null)
                 throw new ArgumentNullException("gameProfileName");
 
-            string cmdLine = "open \"" + gameName + "\" \"" + gameProfileName + "\" -addparam \"/noconsole\" -addparam \"/ssoToken=" + token.TokenString + "\"";
+            string cmdLine = "open \"" + gameName + "\" \"" + gameProfileName + "\" -addparam \"/noconsole\" -addparam \"/ssoToken=" + token.TokenString + "\" -addparam \"/refreshToken=" + token.RefreshToken + "\"";
             if (dxVersion != DirectXVersion.Default)
             {
                 cmdLine += " -addparam \"/triPlatform=" + dxVersion.ToString() + "\"";
@@ -471,7 +471,7 @@ namespace ISBoxerEVELauncher
             if (sharedCachePath == null)
                 throw new ArgumentNullException("sharedCachePath");
 
-            string args = "/noconsole /ssoToken=" + token.TokenString;
+            string args = "/noconsole /ssoToken=" + token.TokenString + " /refreshToken=" + token.RefreshToken;
             if (dxVersion != DirectXVersion.Default)
             {
                 args += " /triPlatform=" + dxVersion.ToString();
@@ -538,11 +538,11 @@ namespace ISBoxerEVELauncher
             {
                 switch (s.ToLowerInvariant())
                 {
-                    case "-dx9":
-                        Settings.UseDirectXVersion = DirectXVersion.dx9;
-                        break;
                     case "-dx11":
                         Settings.UseDirectXVersion = DirectXVersion.dx11;
+                        break;
+                    case "-dx12":
+                        Settings.UseDirectXVersion = DirectXVersion.dx12;
                         break;
                     case "-singularity":
                         Settings.UseSingularity = true;

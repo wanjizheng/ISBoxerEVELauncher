@@ -3,7 +3,7 @@
     public enum DirectXVersion
     {
         Default,
-        dx9,
         dx11,
+        dx12,
     }
 }
