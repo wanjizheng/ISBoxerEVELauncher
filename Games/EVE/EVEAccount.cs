@@ -11,7 +11,6 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Net;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using System.Web;
@@ -123,20 +122,45 @@ namespace ISBoxerEVELauncher.Games.EVE
         /// The EVE login process requires cookies; this will ensure we maintain the same cookies for the account
         /// </summary>
         [XmlIgnore]
-        CookieContainer Cookies
-        {
-            get
-            {
-                if (_Cookies == null)
-                {
-                    if (!string.IsNullOrEmpty(NewCookieStorage))
-                    {
-                        BinaryFormatter formatter = new BinaryFormatter();
-
-
-                        using (Stream s = new MemoryStream(Convert.FromBase64String(NewCookieStorage)))
-                        {
-                            _Cookies = (CookieContainer)formatter.Deserialize(s);
+        // CookieContainer Cookies
+        // {
+        //     get
+        //     {
+        //         if (_Cookies == null)
+        //         {
+        //             if (!string.IsNullOrEmpty(NewCookieStorage))
+        //             {
+        //                 BinaryFormatter formatter = new BinaryFormatter();
+        //
+        //
+        //                 using (Stream s = new MemoryStream(Convert.FromBase64String(NewCookieStorage)))
+        //                 {
+        //                     _Cookies = (CookieContainer)formatter.Deserialize(s);
+        //                 }
+        //             }
+        //             else
+        //                 _Cookies = new CookieContainer();
+        //         }
+        //         return _Cookies;
+        //     }
+        //     set
+        //     {
+        //         _Cookies = value;
+        //     }
+        // }
+        public CookieContainer Cookies {
+            get {
+                if (_Cookies == null) {
+                    if (!string.IsNullOrEmpty(NewCookieStorage)) {
+                        try {
+                            // 反序列化
+                            var cookieList = CookieHelper.FromBase64(NewCookieStorage);
+                            _Cookies = CookieHelper.CreateContainer(cookieList);
+                        }
+                        catch {
+                            // Cookie 文件内容损坏或格式不兼容（如旧版二进制格式），清除并重新开始
+                            ISBoxerEVELauncher.Web.CookieStorage.DeleteCookies(this);
+                            _Cookies = new CookieContainer();
                         }
                     }
                     else
@@ -144,30 +168,41 @@ namespace ISBoxerEVELauncher.Games.EVE
                 }
                 return _Cookies;
             }
-            set
-            {
+            set {
                 _Cookies = value;
+                // 保存时需要主动刷新 NewCookieStorage
+                NewCookieStorage = CookieHelper.ToBase64(_Cookies);
             }
         }
 
-        public void UpdateCookieStorage()
-        {
-            if (Cookies == null)
-            {
+        // public void UpdateCookieStorage()
+        // {
+        //     if (Cookies == null)
+        //     {
+        //         NewCookieStorage = null;
+        //         return;
+        //     }
+        //
+        //     using (MemoryStream ms = new MemoryStream())
+        //     {
+        //         BinaryFormatter formatter = new BinaryFormatter();
+        //         formatter.Serialize(ms, Cookies);
+        //
+        //         ms.Flush();
+        //         ms.Seek(0, SeekOrigin.Begin);
+        //
+        //         NewCookieStorage = Convert.ToBase64String(ms.ToArray());
+        //     }
+        //
+        // }
+
+        public void UpdateCookieStorage() {
+            if (Cookies == null) {
                 NewCookieStorage = null;
                 return;
             }
-
-            using (MemoryStream ms = new MemoryStream())
-            {
-                BinaryFormatter formatter = new BinaryFormatter();
-                formatter.Serialize(ms, Cookies);
-                ms.Flush();
-                ms.Seek(0, SeekOrigin.Begin);
-
-                NewCookieStorage = Convert.ToBase64String(ms.ToArray());
-            }
-
+            // 用 CookieHelper 转成 base64
+            NewCookieStorage = CookieHelper.ToBase64(Cookies);
         }
 
         string _Username;
@@ -627,10 +662,104 @@ namespace ISBoxerEVELauncher.Games.EVE
         }
 
         #region Refresh Tokens
-        /* This section is for experimental implemtnation using Refresh Tokens, which are used by the official EVE Launcher and described as insecure.
-         * They ultimately need the same encrypted storage care as a Password. May or may not be worth implementing. 
-         * The code will not compile at this time if enabled.
-         */
+
+        // Encrypted storage for refresh tokens (AES, same mechanism as EncryptedPassword)
+        public string EncryptedTranquilityRefreshToken { get; set; }
+        public string EncryptedTranquilityRefreshTokenIV { get; set; }
+        public string EncryptedSisiRefreshToken { get; set; }
+        public string EncryptedSisiRefreshTokenIV { get; set; }
+
+        /// <summary>
+        /// Saves the given refresh token for the specified server, encrypted with the master key if available, otherwise plaintext Base64.
+        /// </summary>
+        public void SaveRefreshToken(bool sisi, string refreshToken)
+        {
+            if (string.IsNullOrEmpty(refreshToken))
+                return;
+
+            if (App.Settings.UseMasterKey && App.Settings.HasPasswordMasterKey)
+            {
+                using (RijndaelManaged rjm = new RijndaelManaged())
+                {
+                    rjm.GenerateIV();
+                    string iv = Convert.ToBase64String(rjm.IV);
+                    using (SecureBytesWrapper sbwKey = new SecureBytesWrapper(App.Settings.PasswordMasterKey, true))
+                    {
+                        rjm.Key = sbwKey.Bytes;
+                        using (ICryptoTransform enc = rjm.CreateEncryptor())
+                        {
+                            byte[] plain = Encoding.UTF8.GetBytes(refreshToken);
+                            byte[] cipher = enc.TransformFinalBlock(plain, 0, plain.Length);
+                            string encrypted = Convert.ToBase64String(cipher);
+                            if (!sisi) { EncryptedTranquilityRefreshToken = encrypted; EncryptedTranquilityRefreshTokenIV = iv; }
+                            else { EncryptedSisiRefreshToken = encrypted; EncryptedSisiRefreshTokenIV = iv; }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // No master key — store as plaintext Base64 (same risk level as cookies on disk)
+                string plain64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(refreshToken));
+                if (!sisi) { EncryptedTranquilityRefreshToken = plain64; EncryptedTranquilityRefreshTokenIV = null; }
+                else { EncryptedSisiRefreshToken = plain64; EncryptedSisiRefreshTokenIV = null; }
+            }
+
+            // CRITICAL: persist settings to disk so refresh token survives restart
+            try { App.Settings.Store(); } catch { }
+        }
+
+        /// <summary>
+        /// Loads and decrypts the stored refresh token for the specified server. Returns null if not available.
+        /// </summary>
+        public string LoadRefreshToken(bool sisi)
+        {
+            string stored = sisi ? EncryptedSisiRefreshToken : EncryptedTranquilityRefreshToken;
+            string storedIV = sisi ? EncryptedSisiRefreshTokenIV : EncryptedTranquilityRefreshTokenIV;
+
+            if (string.IsNullOrEmpty(stored))
+                return null;
+
+            // No IV means it was stored as plaintext Base64
+            if (string.IsNullOrEmpty(storedIV))
+            {
+                try { return Encoding.UTF8.GetString(Convert.FromBase64String(stored)); }
+                catch { return null; }
+            }
+
+            if (!App.Settings.HasPasswordMasterKey)
+                return null;
+
+            try
+            {
+                using (RijndaelManaged rjm = new RijndaelManaged())
+                {
+                    rjm.IV = Convert.FromBase64String(storedIV);
+                    using (SecureBytesWrapper sbwKey = new SecureBytesWrapper(App.Settings.PasswordMasterKey, true))
+                    {
+                        rjm.Key = sbwKey.Bytes;
+                        using (ICryptoTransform dec = rjm.CreateDecryptor())
+                        {
+                            byte[] cipher = Convert.FromBase64String(stored);
+                            byte[] plain = dec.TransformFinalBlock(cipher, 0, cipher.Length);
+                            return Encoding.UTF8.GetString(plain);
+                        }
+                    }
+                }
+            }
+            catch { return null; }
+        }
+
+        /// <summary>
+        /// Clears stored refresh tokens for the specified server.
+        /// </summary>
+        public void ClearRefreshToken(bool sisi)
+        {
+            if (!sisi) { EncryptedTranquilityRefreshToken = null; EncryptedTranquilityRefreshTokenIV = null; }
+            else { EncryptedSisiRefreshToken = null; EncryptedSisiRefreshTokenIV = null; }
+            try { App.Settings.Store(); } catch { }
+        }
+
 #if REFRESH_TOKENS
         string _SisiRefreshToken;
         public string SisiRefreshToken { get { return _SisiRefreshToken; } set { _SisiRefreshToken = value; OnPropertyChanged("SisiRefreshToken"); } }
@@ -1097,15 +1226,11 @@ namespace ISBoxerEVELauncher.Games.EVE
 
             try
             {
-                if (App.myLB.strHTML_RequestVerificationToken == "")
-                {
-                    response = new Response(req);
-                }
-                else
-                {
-                    response = new Response(req, WebRequestType.Result);
-                }
-
+                var httpResult = RequestResponse.GetHttpWebResponse(req, UpdateCookieStorage, out response);
+                if (httpResult == LoginResult.Timeout)
+                    return LoginResult.Timeout;
+                if (httpResult != LoginResult.Success || response == null)
+                    return LoginResult.Error;
 
                 string responseBody = response.Body;
                 UpdateCookieStorage();
@@ -1209,8 +1334,8 @@ namespace ISBoxerEVELauncher.Games.EVE
                     case WebExceptionStatus.Timeout:
                         return LoginResult.Timeout;
                     default:
-
-                        Windows.UnhandledResponseWindow urw = new Windows.UnhandledResponseWindow(response.ToString());
+                        string responseInfo = response != null ? response.ToString() : we.ToString();
+                        Windows.UnhandledResponseWindow urw = new Windows.UnhandledResponseWindow(responseInfo);
                         urw.ShowDialog();
                         return LoginResult.Error;
                 }
@@ -1292,62 +1417,144 @@ namespace ISBoxerEVELauncher.Games.EVE
                 return LoginResult.Success;
             }
 
-            // need SecurePassword.
+            // Try using a stored refresh token first — avoids browser login on restart
+            string storedRefresh = LoadRefreshToken(sisi);
+            if (!string.IsNullOrEmpty(storedRefresh))
+            {
+                try
+                {
+                    HttpWebRequest refreshReq = RequestResponse.CreatePostRequest(new Uri(RequestResponse.token, UriKind.Relative), sisi, true, RequestResponse.refererUri, Cookies);
+                    refreshReq.SetBody(RequestResponse.GetRefreshTokenRequestBody(sisi, storedRefresh));
+                    Response refreshResp;
+                    LoginResult refreshResult = RequestResponse.GetHttpWebResponse(refreshReq, UpdateCookieStorage, out refreshResp);
+                    if (refreshResult == LoginResult.Success && refreshResp != null && !string.IsNullOrEmpty(refreshResp.Body))
+                    {
+                        accessToken = new Token(JsonConvert.DeserializeObject<authObj>(refreshResp.Body));
+                        if (!sisi) TranquilityToken = accessToken; else SisiToken = accessToken;
+                        // Save updated refresh token (EVE rotates them)
+                        if (!string.IsNullOrEmpty(accessToken.RefreshToken))
+                            SaveRefreshToken(sisi, accessToken.RefreshToken);
+                        return LoginResult.Success;
+                    }
+                }
+                catch { /* fall through to browser login */ }
+
+                // Refresh token no longer valid — clear it
+                ClearRefreshToken(sisi);
+            }
+
+            // EVE login page is now a React SPA — direct POST no longer works (405).
+            // Open a WebView2 browser window and let the user log in manually.
+            // The browser will intercept the launcher callback URL and extract the auth code.
+            App.strUserName = Username;
+            // Ensure we have a plaintext password for browser autofill.
+            // SecurePassword is only populated when DecryptPassword is called (or user typed it).
             if (SecurePassword == null || SecurePassword.Length == 0)
             {
                 DecryptPassword(true);
-                if (SecurePassword == null || SecurePassword.Length == 0)
-                {
-
-                    Windows.EVELogin el = new Windows.EVELogin(this, true);
-                    bool? dialogResult = el.ShowDialog();
-
-                    if (SecurePassword == null || SecurePassword.Length == 0)
-                    {
-                        // password is required, sorry dude
-                        accessToken = null;
-                        return LoginResult.InvalidUsernameOrPassword;
-                    }
-
-                    App.Settings.Store();
-                }
+            }
+            if (SecurePassword == null || SecurePassword.Length == 0)
+            {
+                // Still no password — prompt the user (will be saved if master key is configured)
+                Windows.EVELogin el = new Windows.EVELogin(this, false);
+                el.ShowDialog();
+            }
+            // Provide plaintext password for autofill (only held in memory during the browser session)
+            if (SecurePassword != null && SecurePassword.Length > 0)
+            {
+                using (SecureStringWrapper ssw = new SecureStringWrapper(SecurePassword, Encoding.UTF8))
+                    App.strPassword = Encoding.UTF8.GetString(ssw.ToByteArray());
+            }
+            else
+            {
+                App.strPassword = null;
             }
 
-            App.strUserName = Username;
-            App.strPassword = new System.Net.NetworkCredential(string.Empty, SecurePassword).Password;
+            var loginUri = RequestResponse.GetLoginUri(sisi, state.ToString(), challengeHash);
+            string loginUrl = new Uri(string.Concat(sisi
+                ? "https://sisilogin.testeveonline.com"
+                : "https://login.eveonline.com", loginUri.ToString())).ToString();
 
-            var uri = RequestResponse.GetLoginUri(sisi, state.ToString(), challengeHash);
+            // Check WebView2 Runtime availability before trying to create the browser window.
+            // On machines without the runtime, creating EVELoginBrowser throws DllNotFoundException.
+            if (!Windows.EVELoginBrowser.IsWebView2Available())
+            {
+                System.Windows.MessageBox.Show(
+                    "Microsoft WebView2 Runtime is required for EVE login but was not found on this machine.\n\n" +
+                    "Please download and install it from:\nhttps://go.microsoft.com/fwlink/p/?LinkId=2124703\n\n" +
+                    "After installation, restart ISBoxer EVE Launcher.",
+                    "WebView2 Runtime Not Found",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+                accessToken = null;
+                return LoginResult.Error;
+            }
 
-            string RequestVerificationToken = string.Empty;
-            var result = GetRequestVerificationToken(uri, sisi, out RequestVerificationToken);
+            var loginBrowser = new Windows.EVELoginBrowser();
+            loginBrowser.Clearup();
+            loginBrowser.Text = "EVE Login - " + Username;
 
-            if (result == LoginResult.Error)
+            loginBrowser.Load += async (s, ev) =>
+            {
+                await loginBrowser.webBrowser_EVE.EnsureCoreWebView2Async();
+                loginBrowser.webBrowser_EVE.CoreWebView2.Navigate(loginUrl);
+            };
+
+            // Keep App.myLB pointing to the active browser so EVELoginBrowser autofill can find credentials
+            App.myLB = loginBrowser;
+            loginBrowser.ShowDialog();
+
+            // Clear plaintext password from memory immediately after browser closes
+            App.strPassword = null;
+
+            string callbackUrl = loginBrowser.strURL_Result;
+
+            // Dispose browser now that we are done with it
+            try { loginBrowser.Dispose(); } catch { }
+            if (App.myLB == loginBrowser) App.myLB = null;
+            if (string.IsNullOrEmpty(callbackUrl))
             {
                 accessToken = null;
-                return result;
+                return LoginResult.Error;
             }
 
-            var req = RequestResponse.CreatePostRequest(uri, sisi, true, "URL", Cookies);
-
-            using (SecureBytesWrapper body = new SecureBytesWrapper())
+            // Extract auth code from callback URL
+            string authCode = System.Web.HttpUtility.ParseQueryString(new Uri(callbackUrl).Query).Get("code");
+            if (string.IsNullOrEmpty(authCode))
             {
-                byte[] body1 = Encoding.ASCII.GetBytes(String.Format("__RequestVerificationToken={1}&UserName={0}&Password=", Uri.EscapeDataString(Username), Uri.EscapeDataString(RequestVerificationToken)));
-                //                byte[] body1 = Encoding.ASCII.GetBytes(String.Format("UserName={0}&Password=", Uri.EscapeDataString(Username)));
-                using (SecureStringWrapper ssw = new SecureStringWrapper(SecurePassword, Encoding.ASCII))
-                {
-                    using (SecureBytesWrapper escapedPassword = new SecureBytesWrapper())
-                    {
-                        escapedPassword.Bytes = System.Web.HttpUtility.UrlEncodeToBytes(ssw.ToByteArray());
-
-                        body.Bytes = new byte[body1.Length + escapedPassword.Bytes.Length];
-                        System.Buffer.BlockCopy(body1, 0, body.Bytes, 0, body1.Length);
-                        System.Buffer.BlockCopy(escapedPassword.Bytes, 0, body.Bytes, body1.Length, escapedPassword.Bytes.Length);
-                        req.SetBody(body);
-                    }
-                }
+                accessToken = null;
+                return LoginResult.Error;
             }
 
-            return GetAccessToken(sisi, req, out accessToken);
+            // Exchange code for access token
+            Response tokenResponse;
+            LoginResult tokenResult = GetAccessToken(sisi, authCode, out tokenResponse);
+            if (tokenResult != LoginResult.Success || tokenResponse == null || string.IsNullOrEmpty(tokenResponse.Body))
+            {
+                accessToken = null;
+                return LoginResult.TokenFailure;
+            }
+
+            try
+            {
+                accessToken = new Token(JsonConvert.DeserializeObject<authObj>(tokenResponse.Body));
+            }
+            catch
+            {
+                accessToken = null;
+                return LoginResult.TokenFailure;
+            }
+
+            if (!sisi)
+                TranquilityToken = accessToken;
+            else
+                SisiToken = accessToken;
+
+            // Persist refresh token so next launch can skip browser login
+            if (!string.IsNullOrEmpty(accessToken.RefreshToken))
+                SaveRefreshToken(sisi, accessToken.RefreshToken);
+
+            return LoginResult.Success;
         }
 
         public LoginResult GetSSOToken(bool sisi, out Token ssoToken)

@@ -128,6 +128,13 @@ namespace ISBoxerEVELauncher.Windows
 
 
             ILaunchTarget a = Accounts[0];
+            if (a.EVEAccount == null)
+            {
+                Accounts.Remove(a);
+                AddDetailsLine("Cannot find EVE Account for '" + (a is ISBoxerEVELauncher.Games.EVE.EVECharacter ec ? ec.EVEAccountName : "unknown") + "'. Please check account settings. Skipping.");
+                NumErrors++;
+                return;
+            }
             LoginResult lr = LoginResult.Error;
             try
             {

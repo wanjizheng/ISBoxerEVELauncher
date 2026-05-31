@@ -102,6 +102,15 @@ namespace ISBoxerEVELauncher.Web
                 .AddQuery("code_verifier", Base64UrlEncoder.Encode(challengeCode)).SafeQuery());
         }
 
+        public static byte[] GetRefreshTokenRequestBody(bool sisi, string refreshToken)
+        {
+            return
+                Encoding.UTF8.GetBytes(new Uri("/", UriKind.Relative)
+                .AddQuery("grant_type", "refresh_token")
+                .AddQuery("client_id", "eveLauncherTQ")
+                .AddQuery("refresh_token", refreshToken).SafeQuery());
+        }
+
         public static Uri GetVerifyTwoFactorUri(bool sisi, string state, string challengeHash)
         {
             return new Uri(verifyTwoFactor, UriKind.Relative)
@@ -231,6 +240,24 @@ namespace ISBoxerEVELauncher.Web
         {
             response = null;
 
+            // The token endpoint (/v2/oauth/token) is a direct API call — never use browser for it.
+            bool isApiEndpoint = webRequest.Address.AbsolutePath.StartsWith("/v2/oauth/token", StringComparison.OrdinalIgnoreCase);
+
+            if (isApiEndpoint)
+            {
+                try
+                {
+                    response = new Response(webRequest);
+                    if (updateCookies != null) updateCookies();
+                    return LoginResult.Success;
+                }
+                catch (System.Net.WebException ex)
+                {
+                    return ex.Status == WebExceptionStatus.Timeout ? LoginResult.Timeout : LoginResult.Error;
+                }
+            }
+
+            // Non-API requests: attempt directly first, fall back to browser on failure
             try
             {
                 if (!App.tofCaptcha)
@@ -238,49 +265,14 @@ namespace ISBoxerEVELauncher.Web
                     response = new Response(webRequest);
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 App.tofCaptcha = true;
             }
 
             try
             {
-                if (App.tofCaptcha)
-                {
-                    App.myLB = new EVELoginBrowser();
-                    App.myLB.Clearup();
-
-                    App.myLB.Text = "EVE - " + App.strUserName;
-
-                    if (webRequest.Method == "GET")
-                    {
-                        App.myLB.webBrowser_EVE.Navigate(webRequest.Address.ToString());
-                    }
-                    else
-                    {
-                        SetRegistery();
-                        App.myLB.webBrowser_EVE.Navigate(webRequest.Address, string.Empty, App.requestBody, webRequest.Headers.ToString());
-
-                    }
-
-                    App.myLB.ShowDialog();
-                }
-
-                if (App.tofCaptcha)
-                {
-                    if (App.myLB.strHTML_Result == "")
-                        return LoginResult.Error;
-                    if (webRequest.Method == "GET")
-                    {
-                        response = new Response(webRequest, WebRequestType.RequestVerificationToken);
-                    }
-                    else
-                    {
-                        response = new Response(webRequest, WebRequestType.Result);
-                    }
-                }
-
-                if (updateCookies != null)
+                if (updateCookies != null && !App.tofCaptcha)
                 {
                     updateCookies();
                 }
@@ -290,17 +282,16 @@ namespace ISBoxerEVELauncher.Web
                 switch (ex.Status)
                 {
                     case WebExceptionStatus.Timeout:
-                        {
-
-                            return LoginResult.Timeout;
-                        }
+                        return LoginResult.Timeout;
                     case WebExceptionStatus.ProtocolError:
+                        if (!App.tofCaptcha)
                         {
-                            return LoginResult.Error;
+                            App.tofCaptcha = true;
+                            return GetHttpWebResponse(webRequest, updateCookies, out response);
                         }
+                        return LoginResult.Error;
                     default:
                         throw;
-                        break;
                 }
             }
 

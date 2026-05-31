@@ -32,15 +32,13 @@ namespace ISBoxerEVELauncher.Launchers
         public LoginResult Launch(ILaunchTarget launchTarget)
         {
             return launchTarget.EVEAccount.Launch(GameProfile.Game, GameProfile.GameProfile, App.Settings.UseSingularity, UseDirectXVersion, launchTarget.CharacterID);
-
-            throw new NotImplementedException();
         }
 
         public string LauncherText
         {
             get
             {
-                throw new NotImplementedException();
+                return "InnerSpace";
             }
         }
     }

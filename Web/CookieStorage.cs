@@ -19,6 +19,8 @@ namespace ISBoxerEVELauncher.Web
 
         public static string GetCookiesFilename(EVEAccount eveAccount)
         {
+            if (eveAccount == null || string.IsNullOrEmpty(eveAccount.Username))
+                return null;
             string filename = eveAccount.Username.ToLowerInvariant().SHA256();
             return System.IO.Path.Combine(GetCookieStoragePath(), filename);
         }
@@ -28,6 +30,7 @@ namespace ISBoxerEVELauncher.Web
             try
             {
                 string filePath = GetCookiesFilename(eveAccount);
+                if (string.IsNullOrEmpty(filePath)) return string.Empty;
                 return System.IO.File.ReadAllText(filePath, Encoding.ASCII);
             }
             catch
@@ -83,6 +86,7 @@ namespace ISBoxerEVELauncher.Web
         public static void SetCookies(EVEAccount eveAccount, string cookies)
         {
             string filePath = GetCookiesFilename(eveAccount);
+            if (string.IsNullOrEmpty(filePath)) return;
             WriteAllTextSafe(filePath, cookies, Encoding.ASCII);
         }
 
@@ -90,6 +94,7 @@ namespace ISBoxerEVELauncher.Web
         public static void DeleteCookies(EVEAccount eveAccount)
         {
             string filePath = GetCookiesFilename(eveAccount);
+            if (string.IsNullOrEmpty(filePath)) return;
             System.IO.File.Delete(filePath);
         }
     }

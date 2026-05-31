@@ -22,17 +22,13 @@
 
         #region Windows Form Designer generated code
 
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(EVELoginBrowser));
-            this.webBrowser_EVE = new System.Windows.Forms.WebBrowser();
+            this.webBrowser_EVE = new Microsoft.Web.WebView2.WinForms.WebView2();
             this.toolStrip_Main = new System.Windows.Forms.ToolStrip();
             this.toolStripTextBox_Addressbar = new System.Windows.Forms.ToolStripTextBox();
             this.toolStripButton_Refresh = new System.Windows.Forms.ToolStripButton();
+            ((System.ComponentModel.ISupportInitialize)(this.webBrowser_EVE)).BeginInit();
             this.toolStrip_Main.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -42,11 +38,8 @@
             this.webBrowser_EVE.Location = new System.Drawing.Point(0, 39);
             this.webBrowser_EVE.MinimumSize = new System.Drawing.Size(20, 20);
             this.webBrowser_EVE.Name = "webBrowser_EVE";
-            this.webBrowser_EVE.Size = new System.Drawing.Size(767, 556);
+            this.webBrowser_EVE.Size = new System.Drawing.Size(900, 620);
             this.webBrowser_EVE.TabIndex = 0;
-            this.webBrowser_EVE.DocumentCompleted += new System.Windows.Forms.WebBrowserDocumentCompletedEventHandler(this.webBrowser_EVE_DocumentCompleted);
-            this.webBrowser_EVE.Navigated += new System.Windows.Forms.WebBrowserNavigatedEventHandler(this.webBrowser_EVE_Navigated);
-            this.webBrowser_EVE.Navigating += new System.Windows.Forms.WebBrowserNavigatingEventHandler(this.webBrowser_EVE_Navigating);
             // 
             // toolStrip_Main
             // 
@@ -55,7 +48,7 @@
             this.toolStripButton_Refresh});
             this.toolStrip_Main.Location = new System.Drawing.Point(0, 0);
             this.toolStrip_Main.Name = "toolStrip_Main";
-            this.toolStrip_Main.Size = new System.Drawing.Size(767, 39);
+            this.toolStrip_Main.Size = new System.Drawing.Size(900, 39);
             this.toolStrip_Main.TabIndex = 2;
             this.toolStrip_Main.Text = "toolStrip1";
             // 
@@ -63,17 +56,15 @@
             // 
             this.toolStripTextBox_Addressbar.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.toolStripTextBox_Addressbar.Name = "toolStripTextBox_Addressbar";
-            this.toolStripTextBox_Addressbar.Size = new System.Drawing.Size(700, 39);
+            this.toolStripTextBox_Addressbar.Size = new System.Drawing.Size(830, 39);
             // 
             // toolStripButton_Refresh
             // 
             this.toolStripButton_Refresh.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
-            this.toolStripButton_Refresh.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            this.toolStripButton_Refresh.Image = ((System.Drawing.Image)(resources.GetObject("toolStripButton_Refresh.Image")));
-            this.toolStripButton_Refresh.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
+            this.toolStripButton_Refresh.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
             this.toolStripButton_Refresh.ImageTransparentColor = System.Drawing.Color.Magenta;
             this.toolStripButton_Refresh.Name = "toolStripButton_Refresh";
-            this.toolStripButton_Refresh.Size = new System.Drawing.Size(36, 36);
+            this.toolStripButton_Refresh.Size = new System.Drawing.Size(50, 36);
             this.toolStripButton_Refresh.Text = "Refresh";
             this.toolStripButton_Refresh.Click += new System.EventHandler(this.toolStripButton_Refresh_Click);
             // 
@@ -81,22 +72,22 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(767, 595);
+            this.ClientSize = new System.Drawing.Size(900, 659);
             this.Controls.Add(this.webBrowser_EVE);
             this.Controls.Add(this.toolStrip_Main);
             this.Name = "EVELoginBrowser";
-            this.Text = "EVELoginBrowser";
+            this.Text = "EVE Login";
             this.Resize += new System.EventHandler(this.EVELoginBrowser_Resize);
+            ((System.ComponentModel.ISupportInitialize)(this.webBrowser_EVE)).EndInit();
             this.toolStrip_Main.ResumeLayout(false);
             this.toolStrip_Main.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
-
         }
 
         #endregion
 
-        public System.Windows.Forms.WebBrowser webBrowser_EVE;
+        public Microsoft.Web.WebView2.WinForms.WebView2 webBrowser_EVE;
         private System.Windows.Forms.ToolStrip toolStrip_Main;
         public System.Windows.Forms.ToolStripTextBox toolStripTextBox_Addressbar;
         private System.Windows.Forms.ToolStripButton toolStripButton_Refresh;

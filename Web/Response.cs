@@ -61,7 +61,8 @@ namespace ISBoxerEVELauncher.Web
                     _responseUri = new Uri(App.myLB.strURL_VerficationCode, UriKind.Absolute);
                     break;
                 case WebRequestType.Result:
-                    _responseBody = App.myLB.strHTML_Result;
+                    // strURL_Result is the full callback URL (contains auth code as query param)
+                    _responseBody = App.myLB.strURL_Result;
                     _responseUri = new Uri(App.myLB.strURL_Result, UriKind.Absolute);
                     break;
             }
